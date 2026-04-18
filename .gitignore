@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Models and checkpoints (too large for GitHub)
+*.pth
+*.pt
+*.ckpt
+
+# Data (too large)
+*.json
+*.gz
+*.zip
+data/
+
+# Habitat build artifacts
+habitat-sim/build/
+habitat-sim/_deps/
+*.so
+*.dylib
+
+# Conda/pip
+.env
+*.egg
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+# Logs
+*.log
+wandb/
