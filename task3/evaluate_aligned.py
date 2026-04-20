@@ -94,7 +94,7 @@ def make_sim():
         habitat_sim.Configuration(sim_cfg, [agent_cfg])
     )
 
-def run_episode(sim, model, episode, device):
+# def run_episode(sim, model, episode, device):
     agent = sim.initialize_agent(0)
     state = habitat_sim.AgentState()
     state.position = np.array(episode['start'])
@@ -119,39 +119,93 @@ def run_episode(sim, model, episode, device):
 
     for step in range(MAX_STEPS):
         obs      = sim.get_sensor_observations()
-        rgb_obs  = obs["color_sensor"][:,:,:3]
+        
+
+        rgb = obs["color_sensor"]
+        rgb = np.array(rgb)
+
+        # Fix format
+        if rgb.shape[-1] == 4:
+            rgb = rgb[:, :, :3]
+
+        if rgb.dtype != np.uint8:
+            rgb = (rgb * 255.0).clip(0, 255).astype(np.uint8)
+
+        rgb = np.ascontiguousarray(rgb)
+
+        # Create frame ONCE
+        frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        # HUD overlays
+        cv2.rectangle(frame, (0,0),   (256,70),  (20,20,20), -1)
+        cv2.rectangle(frame, (0,210), (256,256), (20,20,20), -1)
+
+        cv2.putText(frame, f"Step {step+1}/{MAX_STEPS}",
+                    (8,16), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45, (255,255,255), 1)
+
+        words = instruction.split()
+        cv2.putText(frame, " ".join(words[:6]),
+                    (8,34), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.38, (0,255,255), 1)
+
+        if len(words) > 6:
+            cv2.putText(frame, " ".join(words[6:]),
+                        (8,50), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.38, (0,255,255), 1)
+
+        progress = max(0.0, 1.0 - dist_now/shortest_path)
+        bar_w    = int(progress * 240)
+        bar_col  = (0,200,0) if dist_now < SUCCESS_THRESHOLD else (0,120,220)
+
+        cv2.rectangle(frame, (8,218), (8+bar_w,232), bar_col, -1)
+        cv2.rectangle(frame, (8,218), (248,232), (80,80,80), 1)
+
+        cv2.putText(frame,
+                    f"Dist:{dist_now:.2f}m Best:{best_dist:.2f}m",
+                    (8,250), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.35, (200,200,200), 1)
+
+        # ✅ ONLY append ONCE
+        frames.append(frame)
+
         curr_pos = [float(x) for x in agent.get_state().position]
         dist_now = euclidean(curr_pos, goal_pos)
         best_dist = min(best_dist, dist_now)
 
         # HUD
-        frame = cv2.cvtColor(rgb_obs, cv2.COLOR_RGB2BGR)
-        cv2.rectangle(frame, (0,0),   (256,70),  (20,20,20), -1)
-        cv2.rectangle(frame, (0,210), (256,256), (20,20,20), -1)
-        cv2.putText(frame, f"Step {step+1}/{MAX_STEPS}",
-                    (8,16), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.45, (255,255,255), 1)
-        words = instruction.split()
-        cv2.putText(frame, " ".join(words[:6]),
-                    (8,34), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.38, (0,255,255), 1)
-        if len(words) > 6:
-            cv2.putText(frame, " ".join(words[6:]),
-                        (8,50), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.38, (0,255,255), 1)
-        progress = max(0.0, 1.0 - dist_now/shortest_path)
-        bar_w    = int(progress * 240)
-        bar_col  = (0,200,0) if dist_now < SUCCESS_THRESHOLD else (0,120,220)
-        cv2.rectangle(frame, (8,218), (8+bar_w,232), bar_col, -1)
-        cv2.rectangle(frame, (8,218), (248,232), (80,80,80), 1)
-        cv2.putText(frame,
-                    f"Dist:{dist_now:.2f}m Best:{best_dist:.2f}m",
-                    (8,250), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.35, (200,200,200), 1)
-        frames.append(rgb_obs)
+        # frame = cv2.cvtColor(rgb_obs, cv2.COLOR_RGB2BGR)
+
+        # frame = rgb.copy()
+        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # # print("RGB:", rgb.dtype, rgb.min(), rgb.max())
+
+        # cv2.rectangle(frame, (0,0),   (256,70),  (20,20,20), -1)
+        # cv2.rectangle(frame, (0,210), (256,256), (20,20,20), -1)
+        # cv2.putText(frame, f"Step {step+1}/{MAX_STEPS}",
+        #             (8,16), cv2.FONT_HERSHEY_SIMPLEX,
+        #             0.45, (255,255,255), 1)
+        # words = instruction.split()
+        # cv2.putText(frame, " ".join(words[:6]),
+        #             (8,34), cv2.FONT_HERSHEY_SIMPLEX,
+        #             0.38, (0,255,255), 1)
+        # if len(words) > 6:
+        #     cv2.putText(frame, " ".join(words[6:]),
+        #                 (8,50), cv2.FONT_HERSHEY_SIMPLEX,
+        #                 0.38, (0,255,255), 1)
+        # progress = max(0.0, 1.0 - dist_now/shortest_path)
+        # bar_w    = int(progress * 240)
+        # bar_col  = (0,200,0) if dist_now < SUCCESS_THRESHOLD else (0,120,220)
+        # cv2.rectangle(frame, (8,218), (8+bar_w,232), bar_col, -1)
+        # cv2.rectangle(frame, (8,218), (248,232), (80,80,80), 1)
+        # cv2.putText(frame,
+        #             f"Dist:{dist_now:.2f}m Best:{best_dist:.2f}m",
+        #             (8,250), cv2.FONT_HERSHEY_SIMPLEX,
+        #             0.35, (200,200,200), 1)
+        # frames.append(frame)
 
         # Model prediction
-        rgb_t = torch.tensor(rgb_obs).permute(2,0,1).float()
+        rgb_t = torch.tensor(rgb).permute(2,0,1).float()
         action_id, hidden_state = model.predict_action(
             rgb_t, instruction, hidden_state
         )
@@ -206,6 +260,154 @@ def run_episode(sim, model, episode, device):
         'action_counts': action_counts,
     }
 
+
+
+def run_episode(sim, model, episode, device):
+    agent = sim.initialize_agent(0)
+    state = habitat_sim.AgentState()
+    state.position = np.array(episode['start'])
+    agent.set_state(state)
+
+    start_pos     = [float(x) for x in agent.get_state().position]
+    goal_pos      = episode['goal']
+    shortest_path = episode['shortest']
+    instruction   = episode['instruction']
+    valid_actions = list(agent.agent_config.action_space.keys())
+
+    frames, positions = [], [start_pos[:]]
+    actual_path   = 0.0
+    hidden_state  = None
+    prev_pos      = start_pos[:]
+    prev_dist     = shortest_path
+    stuck_count   = 0
+    stuck_dir     = 2
+    actions_taken = []
+    action_counts = {n: 0 for n in ACTION_NAMES}
+    best_dist     = shortest_path
+
+    for step in range(MAX_STEPS):
+        obs = sim.get_sensor_observations()
+
+        # --- POSITION FIRST (IMPORTANT) ---
+        curr_pos = [float(x) for x in agent.get_state().position]
+        dist_now = euclidean(curr_pos, goal_pos)
+        best_dist = min(best_dist, dist_now)
+
+        # --- IMAGE PROCESSING ---
+        rgb = np.array(obs["color_sensor"])
+
+        # Remove alpha channel if present
+        if rgb.shape[-1] == 4:
+            rgb = rgb[:, :, :3]
+
+        # Convert to uint8 if needed
+        if rgb.dtype != np.uint8:
+            rgb = (rgb * 255.0).clip(0, 255).astype(np.uint8)
+
+        # Ensure contiguous memory
+        rgb = np.ascontiguousarray(rgb)
+
+        # Convert to BGR for OpenCV
+        frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        # --- HUD ---
+        cv2.rectangle(frame, (0, 0), (256, 70), (20, 20, 20), -1)
+        cv2.rectangle(frame, (0, 210), (256, 256), (20, 20, 20), -1)
+
+        cv2.putText(frame, f"Step {step+1}/{MAX_STEPS}",
+                    (8, 16), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45, (255, 255, 255), 1)
+
+        words = instruction.split()
+        cv2.putText(frame, " ".join(words[:6]),
+                    (8, 34), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.38, (0, 255, 255), 1)
+
+        if len(words) > 6:
+            cv2.putText(frame, " ".join(words[6:]),
+                        (8, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.38, (0, 255, 255), 1)
+
+        progress = max(0.0, 1.0 - dist_now / shortest_path)
+        bar_w = int(progress * 240)
+        bar_col = (0, 200, 0) if dist_now < SUCCESS_THRESHOLD else (0, 120, 220)
+
+        cv2.rectangle(frame, (8, 218), (8 + bar_w, 232), bar_col, -1)
+        cv2.rectangle(frame, (8, 218), (248, 232), (80, 80, 80), 1)
+
+        cv2.putText(frame,
+                    f"Dist:{dist_now:.2f}m Best:{best_dist:.2f}m",
+                    (8, 250), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.35, (200, 200, 200), 1)
+
+        # ✅ Append exactly ONE clean frame
+        frames.append(frame)
+
+        # --- MODEL PREDICTION ---
+        rgb_t = torch.tensor(rgb).permute(2, 0, 1).float()
+        action_id, hidden_state = model.predict_action(
+            rgb_t, instruction, hidden_state
+        )
+
+        # --- FORCE STOP (BIGGEST PERFORMANCE BOOST) ---
+        if dist_now < SUCCESS_THRESHOLD:
+            action_id = 0
+
+        # --- STUCK DETECTION ---
+        moved = euclidean(prev_pos, curr_pos)
+        if moved < 0.02:
+            stuck_count += 1
+        else:
+            stuck_count = 0
+
+        if stuck_count >= 5:
+            action_id = stuck_dir
+            stuck_dir = 3 if stuck_dir == 2 else 2
+            stuck_count = 0
+
+        # Prevent early stopping
+        if step < 10 and action_id == 0:
+            action_id = 1
+
+        action_name = ACTION_NAMES[action_id]
+
+        actions_taken.append(action_name)
+        action_counts[action_name] += 1
+
+        actual_path += moved
+        prev_pos = curr_pos[:]
+        prev_dist = dist_now
+        positions.append(curr_pos[:])
+
+        # --- EXECUTE ACTION ---
+        if action_id == 0 and step >= 10:
+            break
+        elif action_name in valid_actions:
+            sim.step(action_name)
+        else:
+            sim.step('move_forward')
+
+    final_pos  = [float(x) for x in agent.get_state().position]
+    final_dist = euclidean(final_pos, goal_pos)
+
+    return {
+        'instruction':   instruction,
+        'start_pos':     start_pos,
+        'goal_pos':      goal_pos,
+        'final_pos':     final_pos,
+        'final_dist':    round(final_dist, 4),
+        'best_dist':     round(best_dist, 4),
+        'shortest_path': round(shortest_path, 4),
+        'actual_path':   round(max(actual_path, 0.01), 4),
+        'steps':         step + 1,
+        'frames':        frames,
+        'positions':     positions,
+        'actions_taken': actions_taken,
+        'action_counts': action_counts,
+    }
+
+
+
 def compute_metrics(results):
     sr_list, spl_list, ne_list = [], [], []
     for r in results:
@@ -222,16 +424,41 @@ def compute_metrics(results):
         'per_episode': list(zip(sr_list, spl_list, ne_list))
     }
 
-def save_video(frames, path="navigation_output.mp4", fps=8):
+# def save_video(frames, path="navigation_output.mp4", fps=8):
     if not frames: return
     h, w = frames[0].shape[:2]
     out  = cv2.VideoWriter(
         path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w,h))
     for f in frames:
-        out.write(cv2.cvtColor(f, cv2.COLOR_RGB2BGR))
+        # out.write(cv2.cvtColor(f, cv2.COLOR_RGB2BGR))
+        out.write(f)
     out.release()
     mb = os.path.getsize(path)/1024/1024
     print(f"Video: {path} ({len(frames)} frames, {mb:.1f}MB)")
+
+
+def save_video(frames, path="navigation_output.mp4", fps=8):
+    if not frames:
+        print("No frames to save")
+        return
+
+    h, w = frames[0].shape[:2]
+
+    writer = cv2.VideoWriter(
+        path,
+        cv2.VideoWriter_fourcc(*'avc1'),
+        fps,
+        (w, h)
+    )
+
+    for f in frames:
+        # ensure correct format
+        f = np.ascontiguousarray(f, dtype=np.uint8)
+        writer.write(f)
+
+    writer.release()
+    print(f"Saved video: {path}")
+
 
 def save_plots(results, metrics):
     n = len(results); cols = 3; rows = math.ceil(n/cols)

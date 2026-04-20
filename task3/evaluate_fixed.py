@@ -102,13 +102,29 @@ def run_episode(sim, model, episode, device):
 
     for step in range(MAX_STEPS):
         obs      = sim.get_sensor_observations()
-        rgb      = obs["color_sensor"][:,:,:3]
+        # rgb      = obs["color_sensor"][:,:,:3]
+        rgb = obs["color_sensor"]
+
+# Fix 1: Remove alpha channel if present
+        if rgb.shape[2] == 4:
+            rgb = rgb[:, :, :3]
+
+# Fix 2: Convert to uint8 properly
+        if rgb.dtype != np.uint8:
+            rgb = (rgb * 255).clip(0, 255).astype(np.uint8)
+
         curr_pos = [float(x) for x in agent.get_state().position]
         dist_now = euclidean(curr_pos, goal_pos)
         best_dist = min(best_dist, dist_now)
 
         # HUD
-        frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        # frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        frame = rgb.copy()
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        print("RGB:", rgb.dtype, rgb.min(), rgb.max())
+
+        
         cv2.rectangle(frame, (0,0),   (256,70),  (20,20,20), -1)
         cv2.rectangle(frame, (0,210), (256,256), (20,20,20), -1)
         cv2.putText(frame, f"Step {step+1}/{MAX_STEPS}",
